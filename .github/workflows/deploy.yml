@@ -5,18 +5,19 @@ on:
       - main
 jobs:
   build:
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout source code.
-        uses: actions/checkout@v2
-      - name: Check Node v
-        run: node -v
+        uses: actions/checkout@v3
+      - uses: actions/setup-node@v3
+        with:
+          node-version: 16
       - name: Install Dependencies
         run: yarn install --frozen-lockfile
       - name: Build # 빌드.
         run: yarn build
-      - name: zip create
-        run: zip -qq -r ./test-build.zip .
+      - name: Make zip file
+        run: zip -qq -r ./$GITHUB_SHA.zip . -x "node_modules/*"
         shell: bash
       - name: Configure AWS credentials # aws 인증 확인.
         uses: aws-actions/configure-aws-credentials@v1
@@ -25,10 +26,10 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_KEY }}
           aws-region: ap-northeast-2
       - name: Upload to S3
-        run: aws s3 cp --region ap-northeast-2 ./test-build.zip s3://dan-test-s3/test-build.zip
+        run: aws s3 cp --region ap-northeast-2 ./$GITHUB_SHA.zip s3://dan-test-s3/$GITHUB_SHA.zip
       - name: Deploy
         run: aws deploy create-deployment
           --application-name test-codedeploy
           --deployment-config-name CodeDeployDefault.AllAtOnce
           --deployment-group-name test-deploy-group
-          --s3-location bucket=dan-test-s3,bundleType=zip
+          --s3-location bucket=dan-test-s3,bundleType=zip,key=$GITHUB_SHA.zip
